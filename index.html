@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Elevator PLC Simulator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+:root{
+  --bg:#f5f4f0;--bg2:#fff;--bg3:#eae9e5;
+  --text:#1a1a1a;--text2:#5a5a56;--text3:#8a8a84;
+  --border:#d4d3cf;--border2:#bbbab6;
+  --blue:#378ADD;--blue-bg:#E6F1FB;--blue-dk:#185FA5;
+  --green:#639922;--green-bg:#EAF3DE;--green-dk:#3B6D11;
+  --red:#E24B4A;--red-bg:#FCEBEB;--red-dk:#A32D2D;
+  --teal:#1D9E75;--teal-bg:#E1F5EE;--teal-dk:#0F6E56;
+  --purple:#7F77DD;--purple-bg:#EEEDFE;--purple-dk:#534AB7;
+  --amber:#BA7517;--amber-bg:#FAEEDA;--amber-dk:#854F0B;
+  --oil:#BA7517;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a1a;--bg2:#262626;--bg3:#333;
+    --text:#e8e8e4;--text2:#a8a8a4;--text3:#787874;
+    --border:#444;--border2:#555;
+    --blue:#85B7EB;--blue-bg:#0C447C;--blue-dk:#B5D4F4;
+    --green:#97C459;--green-bg:#27500A;--green-dk:#C0DD97;
+    --red:#F09595;--red-bg:#501313;--red-dk:#F7C1C1;
+    --teal:#5DCAA5;--teal-bg:#085041;--teal-dk:#9FE1CB;
+    --purple:#AFA9EC;--purple-bg:#26215C;--purple-dk:#CECBF6;
+    --amber:#FAC775;--amber-bg:#412402;--amber-dk:#FAEEDA;
+    --oil:#FAC775;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px;-webkit-text-size-adjust:100%}
+h1{font-size:18px;font-weight:600;text-align:center;padding:12px 0 4px}
+.subtitle{font-size:12px;text-align:center;color:var(--text3);margin-bottom:16px}
+.sim{display:grid;grid-template-columns:1fr;gap:12px;max-width:420px;margin:0 auto}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
+.panel-title{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px}
+
+.shaft{position:relative;height:240px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-bottom:8px}
+.floor-line{position:absolute;left:0;right:0;height:1px;background:var(--border2)}
+.floor-label{position:absolute;right:8px;font-size:10px;color:var(--text3);font-weight:600}
+.level-zone{position:absolute;left:0;right:0;background:var(--amber-bg);opacity:0.5;pointer-events:none}
+.car{position:absolute;left:12%;width:76%;height:45px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px}
+.car.leveling{background:var(--amber)}
+.car-text{color:#fff;font-weight:600;font-size:14px}
+.dir-arrow{color:#fff;font-size:16px}
+.encoder{text-align:center;font-size:11px;color:var(--text3);margin-bottom:8px}
+.encoder b{font-weight:600;color:var(--text2)}
+.legend{display:flex;gap:14px;margin-bottom:8px;justify-content:center;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.call-btn{padding:14px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:13px;font-weight:600;color:var(--text);text-align:center;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.1)}
+.call-btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-dk)}
+.call-btn.car-btn{border-left:3px solid var(--teal)}
+.call-btn.hall-btn{border-left:3px solid var(--purple)}
+
+.hmi{background:var(--bg3);border-radius:8px;padding:14px;border:1px solid var(--border)}
+.hmi-label{font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;text-align:center}
+.hmi-floor{font-size:42px;font-weight:700;text-align:center;line-height:1.1}
+.hmi-dir{font-size:13px;text-align:center;color:var(--blue);margin-top:2px;min-height:18px}
+.hmi-status{font-size:12px;text-align:center;color:var(--text2);margin-top:4px}
+.hmi-speed{font-size:11px;text-align:center;color:var(--text3);margin-top:2px;min-height:16px}
+.fault-msg{font-size:11px;text-align:center;padding:8px;background:var(--red-bg);color:var(--red-dk);border-radius:8px;margin-top:8px;font-weight:500;display:none}
+
+.hydraulic{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;height:340px}
+.hydraulic svg{width:100%;height:100%;display:block}
+.valve-status{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.valve-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center}
+.valve-card-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:2px}
+.valve-card-state{font-size:11px;font-weight:600;color:var(--text2)}
+.valve-card.energized{background:var(--green-bg);border-color:var(--green)}
+.valve-card.energized .valve-card-state{color:var(--green-dk)}
+.valve-card.energized .valve-card-label{color:var(--green-dk)}
+.valve-card.dn-energized{background:var(--blue-bg);border-color:var(--blue)}
+.valve-card.dn-energized .valve-card-state{color:var(--blue-dk)}
+.valve-card.dn-energized .valve-card-label{color:var(--blue-dk)}
+
+.manual-handle-section{margin-top:10px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px}
+.manual-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;text-align:center}
+.manual-btn{width:100%;padding:14px;border-radius:8px;border:1px solid var(--amber);background:var(--amber-bg);color:var(--amber-dk);font-size:13px;font-weight:600;cursor:pointer;text-align:center;-webkit-tap-highlight-color:rgba(0,0,0,0.1)}
+.manual-btn.held{background:var(--amber);color:#fff}
+.manual-hint{font-size:10px;color:var(--text3);text-align:center;margin-top:6px;font-style:italic}
+
+.io-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.io-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2)}
+.io-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:inline-block}
+.io-dot.on{background:var(--green);border-color:var(--green-dk)}
+.io-dot.fault{background:var(--red);border-color:var(--red-dk)}
+
+.safety-chain{display:flex;align-items:center;gap:3px;padding:8px;background:var(--bg3);border-radius:8px;flex-wrap:wrap;justify-content:center}
+.chain-link{font-size:9px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-weight:500}
+.chain-link.ok{border-color:var(--green);color:var(--green-dk);background:var(--green-bg)}
+.chain-link.broken{border-color:var(--red);color:var(--red-dk);background:var(--red-bg)}
+.chain-arrow{color:var(--text3);font-size:9px}
+
+.fault-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.fault-toggle{padding:12px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:500;color:var(--text2);text-align:center;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.1)}
+.fault-toggle.tripped{background:var(--red-bg);border-color:var(--red);color:var(--red-dk)}
+
+.reset-btn{width:100%;margin-top:8px;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;-webkit-tap-highlight-color:rgba(0,0,0,0.1)}
+
+@keyframes flow-up {
+  from { stroke-dashoffset: 20; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes flow-down {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: 20; }
+}
+.flow-up   { stroke-dasharray: 6 4; animation: flow-up   0.5s linear infinite; }
+.flow-up.slow   { animation: flow-up 1.5s linear infinite; }
+.flow-down { stroke-dasharray: 6 4; animation: flow-down 0.5s linear infinite; }
+.flow-down.slow { animation: flow-down 1.5s linear infinite; }
+</style>
+</head>
+<body>
+
+<h1>Elevator PLC simulator</h1>
+<p class="subtitle">CLICK PLUS · 3-stop hydraulic · 4 solenoids + manual lowering</p>
+
+<div class="sim">
+
+  <div class="panel">
+    <div class="panel-title">Elevator shaft</div>
+    <div class="shaft" id="shaft">
+      <!-- Leveling zones (amber bands around each floor) -->
+      <div class="level-zone" id="lz-second"></div>
+      <div class="level-zone" id="lz-first"></div>
+      <div class="level-zone" id="lz-basement"></div>
+      <div class="floor-line" style="top:10%"></div>
+      <div class="floor-label" style="top:3%">2nd</div>
+      <div class="floor-line" style="top:48%"></div>
+      <div class="floor-label" style="top:41%">1st</div>
+      <div class="floor-line" style="top:86%"></div>
+      <div class="floor-label" style="top:79%">Bsmt</div>
+      <div class="car" id="car">
+        <span class="car-text" id="carText">1st</span>
+        <span class="dir-arrow" id="dirArrow"></span>
+      </div>
+    </div>
+    <div class="encoder">Encoder: <b id="encPos">127</b> / 254 in.</div>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--teal)"></span> Car call</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span> Hall call</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span> Leveling zone</div>
+    </div>
+    <div class="btn-grid">
+      <div class="call-btn car-btn" id="btn-car-second" onclick="E.call('car','second')">Car → 2nd</div>
+      <div class="call-btn hall-btn" id="btn-hall-second" onclick="E.call('hall','second')">Hall → 2nd</div>
+      <div class="call-btn car-btn" id="btn-car-first" onclick="E.call('car','first')">Car → 1st</div>
+      <div class="call-btn hall-btn" id="btn-hall-first" onclick="E.call('hall','first')">Hall → 1st</div>
+      <div class="call-btn car-btn" id="btn-car-basement" onclick="E.call('car','basement')">Car → Bsmt</div>
+      <div class="call-btn hall-btn" id="btn-hall-basement" onclick="E.call('hall','basement')">Hall → Bsmt</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Hydraulic system</div>
+    <div class="hydraulic">
+      <svg viewBox="0 0 320 320" preserveAspectRatio="xMidYMid meet">
+        <!-- Cylinder -->
+        <rect x="240" y="20" width="55" height="220" fill="none" stroke="var(--text2)" stroke-width="2" rx="4"/>
+        <text x="267" y="14" text-anchor="middle" font-size="9" fill="var(--text2)" font-weight="600">CYLINDER</text>
+        <rect id="piston" x="251" y="120" width="33" height="118" fill="var(--text3)" rx="2"/>
+        <rect id="oilCyl" x="242" y="120" width="51" height="118" fill="var(--oil)" opacity="0.3"/>
+
+        <!-- Tank -->
+        <path d="M 20 250 L 20 280 L 130 280 L 130 250" fill="none" stroke="var(--text2)" stroke-width="2"/>
+        <rect id="oilTank" x="22" y="258" width="106" height="20" fill="var(--oil)" opacity="0.4"/>
+        <text x="75" y="298" text-anchor="middle" font-size="9" fill="var(--text2)" font-weight="600">OIL TANK</text>
+
+        <!-- Pump motor -->
+        <circle cx="60" cy="50" r="20" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2"/>
+        <circle id="pumpInner" cx="60" cy="50" r="13" fill="var(--bg3)" stroke="var(--text3)" stroke-width="1"/>
+        <text x="60" y="54" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text2)">M</text>
+        <text x="60" y="22" text-anchor="middle" font-size="9" fill="var(--text2)" font-weight="600">PUMP</text>
+
+        <!-- Pump intake from tank -->
+        <line x1="60" y1="250" x2="60" y2="70" stroke="var(--text3)" stroke-width="2"/>
+
+        <!-- Pump discharge UP -->
+        <line x1="80" y1="50" x2="115" y2="50" stroke="var(--text3)" stroke-width="2"/>
+
+        <!-- UP HIGH-SPEED VALVE -->
+        <g id="upHiValve">
+          <rect x="115" y="36" width="34" height="28" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2" rx="2"/>
+          <line id="upHiSym" x1="119" y1="60" x2="145" y2="40" stroke="var(--text2)" stroke-width="2"/>
+          <text x="132" y="32" text-anchor="middle" font-size="8" fill="var(--text2)" font-weight="600">UP HI</text>
+          <rect id="upHiCoil" x="121" y="68" width="22" height="5" fill="var(--bg3)" stroke="var(--text3)" stroke-width="1" rx="1"/>
+        </g>
+
+        <!-- Between hi and leveling -->
+        <line x1="149" y1="50" x2="160" y2="50" stroke="var(--text3)" stroke-width="2"/>
+
+        <!-- UP LEVELING VALVE -->
+        <g id="upLoValve">
+          <rect x="160" y="36" width="34" height="28" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2" rx="2"/>
+          <line id="upLoSym" x1="164" y1="60" x2="190" y2="40" stroke="var(--text2)" stroke-width="2"/>
+          <text x="177" y="32" text-anchor="middle" font-size="8" fill="var(--text2)" font-weight="600">UP LV</text>
+          <rect id="upLoCoil" x="166" y="68" width="22" height="5" fill="var(--bg3)" stroke="var(--text3)" stroke-width="1" rx="1"/>
+        </g>
+
+        <!-- Up line continues to cylinder -->
+        <line x1="194" y1="50" x2="220" y2="50" stroke="var(--text3)" stroke-width="2"/>
+        <line x1="220" y1="50" x2="220" y2="240" stroke="var(--text3)" stroke-width="2"/>
+        <line x1="220" y1="240" x2="240" y2="240" stroke="var(--text3)" stroke-width="2"/>
+
+        <!-- Active flow line UP -->
+        <path id="flowUp" d="M 60 250 L 60 70 M 80 50 L 115 50 M 149 50 L 160 50 M 194 50 L 220 50 L 220 240 L 240 240" stroke="var(--green-dk)" stroke-width="3" fill="none" opacity="0" stroke-linecap="round"/>
+
+        <!-- DOWN HIGH-SPEED VALVE -->
+        <g id="dnHiValve">
+          <rect x="115" y="166" width="34" height="28" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2" rx="2"/>
+          <line id="dnHiSym" x1="119" y1="190" x2="145" y2="170" stroke="var(--text2)" stroke-width="2"/>
+          <text x="132" y="162" text-anchor="middle" font-size="8" fill="var(--text2)" font-weight="600">DN HI</text>
+          <rect id="dnHiCoil" x="121" y="198" width="22" height="5" fill="var(--bg3)" stroke="var(--text3)" stroke-width="1" rx="1"/>
+        </g>
+
+        <!-- DOWN LEVELING VALVE -->
+        <g id="dnLoValve">
+          <rect x="160" y="166" width="34" height="28" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2" rx="2"/>
+          <line id="dnLoSym" x1="164" y1="190" x2="190" y2="170" stroke="var(--text2)" stroke-width="2"/>
+          <text x="177" y="162" text-anchor="middle" font-size="8" fill="var(--text2)" font-weight="600">DN LV</text>
+          <rect id="dnLoCoil" x="166" y="198" width="22" height="5" fill="var(--bg3)" stroke="var(--text3)" stroke-width="1" rx="1"/>
+        </g>
+
+        <!-- DOWN piping: cylinder -> down valves -> tank -->
+        <line x1="220" y1="180" x2="194" y2="180" stroke="var(--text3)" stroke-width="2"/>
+        <line x1="160" y1="180" x2="149" y2="180" stroke="var(--text3)" stroke-width="2"/>
+        <line x1="115" y1="180" x2="100" y2="180" stroke="var(--text3)" stroke-width="2"/>
+        <line x1="100" y1="180" x2="100" y2="258" stroke="var(--text3)" stroke-width="2"/>
+
+        <!-- Active flow line DOWN -->
+        <path id="flowDown" d="M 240 240 L 220 240 L 220 180 L 194 180 M 160 180 L 149 180 M 115 180 L 100 180 L 100 258" stroke="var(--blue-dk)" stroke-width="3" fill="none" opacity="0" stroke-linecap="round"/>
+
+        <circle cx="220" cy="180" r="3" fill="var(--text3)"/>
+
+        <!-- Manual lowering valve (separate, at bottom of cylinder line, drains to tank) -->
+        <g id="manualValve">
+          <!-- Handle/lever -->
+          <line x1="265" y1="270" x2="285" y2="260" stroke="var(--text2)" stroke-width="2" id="manualHandle"/>
+          <circle cx="265" cy="270" r="3" fill="var(--text2)"/>
+          <!-- Valve body -->
+          <rect x="248" y="260" width="20" height="20" fill="var(--bg2)" stroke="var(--text2)" stroke-width="2" rx="2"/>
+          <text x="258" y="313" text-anchor="middle" font-size="8" fill="var(--text2)" font-weight="600">MANUAL</text>
+          <!-- Pipe from cylinder bottom to manual valve, then to tank -->
+          <line x1="258" y1="240" x2="258" y2="260" stroke="var(--text3)" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <line x1="248" y1="270" x2="160" y2="270" stroke="var(--text3)" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <line x1="160" y1="270" x2="160" y2="278" stroke="var(--text3)" stroke-width="1.5" stroke-dasharray="2 2"/>
+        </g>
+
+        <!-- Manual flow line (only when handle held) -->
+        <path id="flowManual" d="M 240 240 Q 258 240 258 260 L 258 270 L 160 270 L 160 278" stroke="var(--amber-dk)" stroke-width="3" fill="none" opacity="0" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="valve-status">
+      <div class="valve-card" id="upHiCard">
+        <div class="valve-card-label">UP hi-speed</div>
+        <div class="valve-card-state" id="upHiState">CLOSED</div>
+      </div>
+      <div class="valve-card" id="upLoCard">
+        <div class="valve-card-label">UP leveling</div>
+        <div class="valve-card-state" id="upLoState">CLOSED</div>
+      </div>
+      <div class="valve-card" id="dnHiCard">
+        <div class="valve-card-label">DN hi-speed</div>
+        <div class="valve-card-state" id="dnHiState">CLOSED</div>
+      </div>
+      <div class="valve-card" id="dnLoCard">
+        <div class="valve-card-label">DN leveling</div>
+        <div class="valve-card-state" id="dnLoState">CLOSED</div>
+      </div>
+    </div>
+    <div class="manual-handle-section">
+      <div class="manual-label">Manual lowering handle (machine room)</div>
+      <div class="manual-btn" id="manualBtn"
+        onmousedown="E.manualDown()" onmouseup="E.manualUp()" onmouseleave="E.manualUp()"
+        ontouchstart="E.manualDown(event)" ontouchend="E.manualUp(event)" ontouchcancel="E.manualUp(event)">
+        Hold to lower car
+      </div>
+      <div class="manual-hint">Mechanical valve · drains oil to tank by gravity · works even with no power</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">HMI display</div>
+    <div class="hmi">
+      <div class="hmi-label">Car display (4")</div>
+      <div class="hmi-floor" id="hmiFloor">1</div>
+      <div class="hmi-dir" id="hmiDir"></div>
+      <div class="hmi-status" id="hmiStatus">Idle</div>
+      <div class="hmi-speed" id="hmiSpeed"></div>
+      <div class="fault-msg" id="hmiFault"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">PLC I/O status</div>
+    <div class="io-grid">
+      <div class="io-item"><span class="io-dot" id="io0"></span> X0: Car Bsmt</div>
+      <div class="io-item"><span class="io-dot" id="io1"></span> X1: Car 1st</div>
+      <div class="io-item"><span class="io-dot" id="io2"></span> X2: Car 2nd</div>
+      <div class="io-item"><span class="io-dot" id="io3"></span> X3: Hall Bsmt</div>
+      <div class="io-item"><span class="io-dot" id="io4"></span> X4: Hall 1st</div>
+      <div class="io-item"><span class="io-dot" id="io5"></span> X5: Hall 2nd</div>
+      <div class="io-item"><span class="io-dot" id="io6"></span> X6: E-stop</div>
+      <div class="io-item"><span class="io-dot" id="io7"></span> X7: Door intlk</div>
+      <div class="io-item"><span class="io-dot" id="io8"></span> X8: Top limit</div>
+      <div class="io-item"><span class="io-dot" id="io9"></span> X9: Btm limit</div>
+      <div class="io-item"><span class="io-dot" id="io10"></span> Y0: UP hi-spd</div>
+      <div class="io-item"><span class="io-dot" id="io11"></span> Y1: UP level</div>
+      <div class="io-item"><span class="io-dot" id="io12"></span> Y2: DN hi-spd</div>
+      <div class="io-item"><span class="io-dot" id="io13"></span> Y3: DN level</div>
+      <div class="io-item"><span class="io-dot" id="io14"></span> Y4: Flr 0 lamp</div>
+      <div class="io-item"><span class="io-dot" id="io15"></span> Y5: Flr 1 lamp</div>
+      <div class="io-item"><span class="io-dot" id="io16"></span> Y6: Flr 2 lamp</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Safety string</div>
+    <div class="safety-chain">
+      <span class="chain-link ok" id="ch0">24VDC</span>
+      <span class="chain-arrow">→</span>
+      <span class="chain-link ok" id="ch1">E-stop</span>
+      <span class="chain-arrow">→</span>
+      <span class="chain-link ok" id="ch2">Top lmt</span>
+      <span class="chain-arrow">→</span>
+      <span class="chain-link ok" id="ch3">Btm lmt</span>
+      <span class="chain-arrow">→</span>
+      <span class="chain-link ok" id="ch4">Door</span>
+      <span class="chain-arrow">→</span>
+      <span class="chain-link ok" id="ch5">Coil bus</span>
+    </div>
+    <div class="fault-btns">
+      <div class="fault-toggle" id="ft-estop" onclick="E.fault('estop')">E-stop</div>
+      <div class="fault-toggle" id="ft-doorOpen" onclick="E.fault('doorOpen')">Door open</div>
+      <div class="fault-toggle" id="ft-topLimit" onclick="E.fault('topLimit')">Top limit trip</div>
+      <div class="fault-toggle" id="ft-bottomLimit" onclick="E.fault('bottomLimit')">Btm limit trip</div>
+    </div>
+    <div class="reset-btn" onclick="E.reset()">Reset all faults</div>
+  </div>
+
+</div>
+
+<script>
+var E = {};
+
+E.pos = 48;
+E.target = null;
+E.dir = 'idle';
+E.cc = {basement:false, first:false, second:false};
+E.hc = {basement:false, first:false, second:false};
+E.ft = {estop:false, doorOpen:false, topLimit:false, bottomLimit:false};
+E.floor = 'first';
+E.moving = false;
+E.queue = [];
+E.pumpAngle = 0;
+E.manualHeld = false;
+
+E.FLOORS = {
+  basement: {name:'Bsmt', pos:86, num:0},
+  first:    {name:'1st',  pos:48, num:1},
+  second:   {name:'2nd',  pos:10, num:2}
+};
+E.KEYS = ['basement','first','second'];
+E.FAST = 0.20;        // fast travel speed (% per frame)
+E.LEVEL = 0.05;       // leveling speed (% per frame)
+E.MANUAL = 0.04;      // manual lowering speed
+E.LZ = 6;             // leveling zone radius (% of shaft = ~6 inches at 254" total)
+
+E.floorAt = function(p) {
+  for (var i = 0; i < 3; i++) {
+    if (Math.abs(p - E.FLOORS[E.KEYS[i]].pos) < 1) return E.KEYS[i];
+  }
+  return null;
+};
+
+E.safe = function() {
+  return !E.ft.estop && !E.ft.doorOpen && !E.ft.topLimit && !E.ft.bottomLimit;
+};
+
+E.enc = function(p) { return Math.round(254 * (86 - p) / 76); };
+
+// In leveling zone if within LZ% of target
+E.inLevelZone = function() {
+  if (!E.target) return false;
+  return Math.abs(E.FLOORS[E.target].pos - E.pos) < E.LZ;
+};
+
+// Valve states based on movement and position
+E.upHiOn = function() { return E.moving && E.dir === 'up' && E.safe() && !E.inLevelZone(); };
+E.upLoOn = function() { return E.moving && E.dir === 'up' && E.safe(); }; // leveling on entire trip
+E.dnHiOn = function() { return E.moving && E.dir === 'down' && E.safe() && !E.inLevelZone(); };
+E.dnLoOn = function() { return E.moving && E.dir === 'down' && E.safe(); };
+
+E.call = function(type, floor) {
+  if (type === 'car') E.cc[floor] = true; else E.hc[floor] = true;
+  if (E.queue.indexOf(floor) === -1) E.queue.push(floor);
+  E.process();
+};
+
+E.fault = function(key) {
+  E.ft[key] = !E.ft[key];
+  if (!E.safe()) E.moving = false;
+};
+
+E.reset = function() {
+  E.ft = {estop:false, doorOpen:false, topLimit:false, bottomLimit:false};
+  E.process();
+};
+
+E.manualDown = function(ev) {
+  if (ev) ev.preventDefault();
+  E.manualHeld = true;
+  document.getElementById('manualBtn').classList.add('held');
+};
+
+E.manualUp = function(ev) {
+  if (ev) ev.preventDefault();
+  E.manualHeld = false;
+  document.getElementById('manualBtn').classList.remove('held');
+};
+
+E.process = function() {
+  if (E.moving || !E.safe() || E.queue.length === 0) return;
+  E.queue.sort(function(a, b) {
+    return Math.abs(E.FLOORS[a].pos - E.pos) - Math.abs(E.FLOORS[b].pos - E.pos);
+  });
+  var next = E.queue[0];
+  if (next === E.floor && E.floorAt(E.pos) === next) {
+    E.queue.shift(); E.cc[next] = false; E.hc[next] = false;
+    E.process(); return;
+  }
+  E.target = next;
+  E.dir = E.FLOORS[next].pos < E.pos ? 'up' : 'down';
+  E.moving = true;
+};
+
+E.step = function() {
+  // Manual lowering takes precedence (works even when faulted)
+  if (E.manualHeld) {
+    if (E.pos < 86) {
+      E.pos = Math.min(86, E.pos + E.MANUAL);
+      var fl = E.floorAt(E.pos);
+      if (fl) E.floor = fl;
+    }
+    // Manual lowering interrupts normal movement
+    if (E.moving) { E.moving = false; E.dir = 'idle'; E.target = null; }
+    return;
+  }
+
+  if (!E.moving || !E.safe()) return;
+  var tp = E.FLOORS[E.target].pos;
+  var d = tp - E.pos;
+  var inZone = E.inLevelZone();
+  var speed = inZone ? E.LEVEL : E.FAST;
+
+  if (Math.abs(d) < speed * 1.1) {
+    E.pos = tp; E.floor = E.target; E.moving = false; E.dir = 'idle';
+    E.cc[E.target] = false; E.hc[E.target] = false;
+    var t = E.target; E.target = null;
+    E.queue = E.queue.filter(function(f) { return f !== t; });
+    setTimeout(function() { E.process(); }, 600);
+  } else {
+    E.pos += d > 0 ? speed : -speed;
+    var fl = E.floorAt(E.pos);
+    if (fl) E.floor = fl;
+  }
+};
+
+E.setupLevelZones = function() {
+  var sh = document.getElementById('shaft').offsetHeight || 240;
+  var zoneHeightPct = (E.LZ * 2);
+  var zones = [['lz-second', 10], ['lz-first', 48], ['lz-basement', 86]];
+  for (var i = 0; i < zones.length; i++) {
+    var el = document.getElementById(zones[i][0]);
+    var center = zones[i][1];
+    el.style.top = (center - E.LZ) + '%';
+    el.style.height = zoneHeightPct + '%';
+  }
+};
+
+E.render = function() {
+  var shaft = document.getElementById('shaft');
+  var sh = shaft.offsetHeight || 240;
+  var car = document.getElementById('car');
+  car.style.top = (E.pos / 100) * (sh - 45) + 'px';
+
+  var inZone = E.inLevelZone();
+  if (E.moving && inZone) car.classList.add('leveling');
+  else car.classList.remove('leveling');
+
+  var fl = E.floorAt(E.pos);
+  document.getElementById('carText').textContent = fl ? E.FLOORS[fl].name : '--';
+  document.getElementById('dirArrow').textContent = E.dir === 'up' ? '\u25B2' : E.dir === 'down' ? '\u25BC' : '';
+  document.getElementById('encPos').textContent = E.enc(E.pos);
+  document.getElementById('hmiFloor').textContent = fl ? E.FLOORS[fl].num : '\u2014';
+  document.getElementById('hmiDir').textContent = E.dir === 'up' ? '\u25B2 UP' : E.dir === 'down' ? '\u25BC DOWN' : '';
+
+  var safe = E.safe();
+  var hs = document.getElementById('hmiStatus');
+  var hSp = document.getElementById('hmiSpeed');
+  var hf = document.getElementById('hmiFault');
+
+  if (E.manualHeld) {
+    hs.textContent = 'MANUAL LOWERING';
+    hSp.textContent = '';
+    hf.style.display = 'none';
+  } else if (!safe) {
+    hs.textContent = '\u26A0 FAULT \u2014 stopped';
+    hSp.textContent = '';
+    var m = [];
+    if (E.ft.estop) m.push('E-stop pressed');
+    if (E.ft.doorOpen) m.push('Door open');
+    if (E.ft.topLimit) m.push('Top limit tripped');
+    if (E.ft.bottomLimit) m.push('Bottom limit tripped');
+    hf.textContent = m.join(' \u00B7 ');
+    hf.style.display = 'block';
+  } else if (E.moving) {
+    hs.textContent = 'Moving to ' + E.FLOORS[E.target].name;
+    hSp.textContent = inZone ? 'Leveling \u2014 slow approach' : 'Hi-speed travel';
+    hf.style.display = 'none';
+  } else {
+    hs.textContent = 'Idle at ' + (fl ? E.FLOORS[fl].name : '\u2014');
+    hSp.textContent = '';
+    hf.style.display = 'none';
+  }
+
+  // === HYDRAULIC SCHEMATIC ===
+  var upHi = E.upHiOn(), upLo = E.upLoOn();
+  var dnHi = E.dnHiOn(), dnLo = E.dnLoOn();
+  var anyUp = upHi || upLo;
+  var anyDn = dnHi || dnLo;
+
+  // Piston: cylinder is 220px tall (y=20 to 240), piston rests at floor=86 -> y=200, top floor=10 -> y=120
+  var pistonY = 120 + ((E.pos - 10) / 76) * 80;
+  document.getElementById('piston').setAttribute('y', pistonY);
+  document.getElementById('oilCyl').setAttribute('y', pistonY);
+  document.getElementById('oilCyl').setAttribute('height', 238 - pistonY);
+
+  // Update each valve symbol (open = horizontal, closed = diagonal)
+  function updateValve(symId, coilId, isOn, color, y1c, y2c, y1o, y2o, x1, x2) {
+    var sym = document.getElementById(symId);
+    var coil = document.getElementById(coilId);
+    if (isOn) {
+      sym.setAttribute('x1', x1); sym.setAttribute('x2', x2);
+      sym.setAttribute('y1', y1o); sym.setAttribute('y2', y2o);
+      sym.setAttribute('stroke', color);
+      sym.setAttribute('stroke-width', '3');
+      coil.setAttribute('fill', color);
+    } else {
+      sym.setAttribute('x1', x1); sym.setAttribute('x2', x2);
+      sym.setAttribute('y1', y1c); sym.setAttribute('y2', y2c);
+      sym.setAttribute('stroke', 'var(--text2)');
+      sym.setAttribute('stroke-width', '2');
+      coil.setAttribute('fill', 'var(--bg3)');
+    }
+  }
+  // Each valve: when on, both endpoints at midpoint Y. When off, diagonal.
+  updateValve('upHiSym','upHiCoil', upHi, 'var(--green-dk)', 60, 40, 50, 50, 119, 145);
+  updateValve('upLoSym','upLoCoil', upLo, 'var(--green-dk)', 60, 40, 50, 50, 164, 190);
+  updateValve('dnHiSym','dnHiCoil', dnHi, 'var(--blue-dk)',  190, 170, 180, 180, 119, 145);
+  updateValve('dnLoSym','dnLoCoil', dnLo, 'var(--blue-dk)',  190, 170, 180, 180, 164, 190);
+
+  // Pump animation
+  var pump = document.getElementById('pumpInner');
+  if (anyUp) {
+    var rate = inZone ? 6 : 14;
+    E.pumpAngle = (E.pumpAngle + rate) % 360;
+    pump.setAttribute('transform', 'rotate(' + E.pumpAngle + ' 60 50)');
+    pump.setAttribute('fill', 'var(--green-bg)');
+  } else {
+    pump.setAttribute('fill', 'var(--bg3)');
+  }
+
+  // Flow lines
+  var flowUp = document.getElementById('flowUp');
+  var flowDown = document.getElementById('flowDown');
+  flowUp.setAttribute('opacity', anyUp ? '0.7' : '0');
+  flowUp.setAttribute('class', anyUp ? ('flow-up' + (inZone ? ' slow' : '')) : '');
+  flowDown.setAttribute('opacity', anyDn ? '0.7' : '0');
+  flowDown.setAttribute('class', anyDn ? ('flow-down' + (inZone ? ' slow' : '')) : '');
+
+  // Manual handle visualization
+  var manualHandle = document.getElementById('manualHandle');
+  var flowManual = document.getElementById('flowManual');
+  if (E.manualHeld) {
+    // Pull handle down (rotate)
+    manualHandle.setAttribute('x2', '278');
+    manualHandle.setAttribute('y2', '278');
+    flowManual.setAttribute('opacity', '0.7');
+    flowManual.setAttribute('class', 'flow-down slow');
+  } else {
+    manualHandle.setAttribute('x2', '285');
+    manualHandle.setAttribute('y2', '260');
+    flowManual.setAttribute('opacity', '0');
+    flowManual.setAttribute('class', '');
+  }
+
+  // Valve status cards
+  function setCard(cardId, stateId, isOn, isDown, label) {
+    var card = document.getElementById(cardId);
+    var state = document.getElementById(stateId);
+    var cls = 'valve-card' + (isOn ? (isDown ? ' dn-energized' : ' energized') : '');
+    card.className = cls;
+    state.textContent = isOn ? label : 'CLOSED';
+  }
+  setCard('upHiCard','upHiState', upHi, false, 'OPEN');
+  setCard('upLoCard','upLoState', upLo, false, 'OPEN');
+  setCard('dnHiCard','dnHiState', dnHi, true, 'OPEN');
+  setCard('dnLoCard','dnLoState', dnLo, true, 'OPEN');
+
+  // === REST OF UI ===
+  var bp = [
+    ['btn-car-second',E.cc.second,'car'],['btn-hall-second',E.hc.second,'hall'],
+    ['btn-car-first',E.cc.first,'car'],['btn-hall-first',E.hc.first,'hall'],
+    ['btn-car-basement',E.cc.basement,'car'],['btn-hall-basement',E.hc.basement,'hall']
+  ];
+  for (var i = 0; i < bp.length; i++) {
+    document.getElementById(bp[i][0]).className = 'call-btn ' + (bp[i][2]==='car'?'car-btn':'hall-btn') + (bp[i][1] ? ' active' : '');
+  }
+
+  function dot(id, on, f) { document.getElementById(id).className = 'io-dot' + (on ? (f ? ' fault' : ' on') : ''); }
+  dot('io0',E.cc.basement,0); dot('io1',E.cc.first,0); dot('io2',E.cc.second,0);
+  dot('io3',E.hc.basement,0); dot('io4',E.hc.first,0); dot('io5',E.hc.second,0);
+  dot('io6',E.ft.estop,1); dot('io7',!E.ft.doorOpen,0); dot('io8',!E.ft.topLimit,0); dot('io9',!E.ft.bottomLimit,0);
+  dot('io10',upHi,0); dot('io11',upLo,0); dot('io12',dnHi,0); dot('io13',dnLo,0);
+  dot('io14',E.floor==='basement'&&!E.moving,0); dot('io15',E.floor==='first'&&!E.moving,0); dot('io16',E.floor==='second'&&!E.moving,0);
+
+  document.getElementById('ch0').className = 'chain-link ok';
+  document.getElementById('ch1').className = 'chain-link ' + (!E.ft.estop?'ok':'broken');
+  document.getElementById('ch2').className = 'chain-link ' + (!E.ft.topLimit?'ok':'broken');
+  document.getElementById('ch3').className = 'chain-link ' + (!E.ft.bottomLimit?'ok':'broken');
+  document.getElementById('ch4').className = 'chain-link ' + (!E.ft.doorOpen?'ok':'broken');
+  document.getElementById('ch5').className = 'chain-link ' + (safe?'ok':'broken');
+
+  document.getElementById('ft-estop').className = 'fault-toggle' + (E.ft.estop?' tripped':'');
+  document.getElementById('ft-doorOpen').className = 'fault-toggle' + (E.ft.doorOpen?' tripped':'');
+  document.getElementById('ft-topLimit').className = 'fault-toggle' + (E.ft.topLimit?' tripped':'');
+  document.getElementById('ft-bottomLimit').className = 'fault-toggle' + (E.ft.bottomLimit?' tripped':'');
+};
+
+E.tick = function() { E.step(); E.render(); requestAnimationFrame(E.tick); };
+
+E.setupLevelZones();
+E.render();
+requestAnimationFrame(E.tick);
+</script>
+</body>
+</html>
